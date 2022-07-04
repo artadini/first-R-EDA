@@ -1,0 +1,431 @@
+---
+title: "My first EDA in R"
+output: 
+  html_document:
+    code_folding: show
+    theme:
+      bg: "#202123"
+      fg: "#B8BCC2"
+      primary: "#EA80FC"
+      secondary: "#00DAC6"
+      base_font:
+        google: Prompt
+      heading_font:
+        google: Proza Libre
+---
+
+<!-- To run this file in the command line and create the HTML file then use the following code
+"render('~/Desktop/R/project/REDA_Nikolas_Artadi.Rmd','all')"-->
+
+```{r setup, include=FALSE}
+if (requireNamespace("thematic")) 
+  thematic::thematic_rmd(font = "auto")
+```
+
+# R Markdown
+
+Welcome to the project of “PROGRAMMING - MBD-EN-BL2021J-1_32R377_406729” course.
+In this project I will be working with a real-world dataset from the [Kaggle platform](https://www.kaggle.com/) corresponding to the [AMS 2013-2014 Solar Energy Prediction Contest](https://www.kaggle.com/c/ams-2014-solar-energy-prediction-contest/overview/).
+
+The goal in this project will be:
+
+1. To perform an exploratory data analysis, EDA.
+
+2. Create an R Markdown report with the EDA findings.
+
+Each section will be split in every indivdual dataset that was looked at. I will particularily focus on the main dataset: solar_dataset.
+
+**About this dataset**
+
+This data is about the solar energy production per stations in [Oklahoma Mesonet](http://www.mesonet.org/) sites.
+
+This task includes 3 datasets.
+
+- *solar_dataset*: Data about the solar energy production per station and date. Included PCA features. 
+- *additional_variables*: Additional data about real Numerical Weather Prediction, NWP, values. In particular, they are the 100 original variables detected as more important to predict the first station (feature ACME) values, after feature importance analysis.
+- *station_info*: Information on the station's location.
+
+```{r include=FALSE}
+# In case the packages were not installed before:
+# install.packages("tidyverse",dependencies=TRUE)
+# install.packages("corrplot",dependencies=TRUE)
+# install.packages("ggplot2",dependencies=TRUE)
+# install.packages("outliers",dependencies=TRUE)
+# install.packages("ggfortify",dependencies=TRUE)
+# install.packages("kableExtra",dependencies=TRUE)
+# install.packages("leaflet",dependencies=TRUE)
+# install.packages("dplyr",dependencies=TRUE)
+# install.packages("rmarkdown",dependencies=TRUE)
+
+library(tidyverse)
+library(corrplot)
+library(ggplot2)
+library(outliers) 
+library(lubridate)
+library(ggfortify)
+library(kableExtra)
+library(leaflet)
+library(dplyr)
+library(rmarkdown)
+
+# Import the data
+solar_dataset <- readRDS("~/Desktop/R/project/solar_dataset.RData")
+additional_variables <- readRDS("~/Desktop/R/project/additional_variables.RData")
+station_info <- read.csv("~/Desktop/R/project/station_info.csv")
+
+# List the datasets
+df.listed <- list('solar_dataset' = solar_dataset,'additional_variables' = additional_variables,'station_info' = station_info )
+
+```
+
+# Start of EDA {.tabset .tabset-pills .tabset-fade}
+
+## First look at the data {.tabset .tabset-pills}
+First I will take an initial look at the data and the dimensions.
+In the following order.
+
+- solar_dataset
+
+- additional_variables
+
+- station_info
+
+Show dimensions of the dataset:
+
+```{r echo = FALSE, results = 'asis'}
+for (i in lapply(df.listed, dim)){
+cat('Rows:',i[1],'Columns:',i[2],'\n\n')
+}
+```
+
+Clearly, the dataset is huge and probably, based on the explanation found in Kaggle, the data will be very skewed. Which indicates that identifying outliers based on the data will be hard.
+
+### solar_dataset
+
+First look at the dataset.
+
+Clearly, the data is not completely clean here. I can see many null values and also PCA features
+
+- The date data seems to be oddly formatted. Which needs to be formatted properly.
+- The data itself seems to be OK.
+
+This is the head
+```{r echo = FALSE, results = 'asis'}
+head(solar_dataset) %>%
+  kbl() %>%
+  kable_material(c("striped", "hover"))
+
+```
+
+This is the tail
+```{r echo = FALSE, results = 'asis'}
+  tail(solar_dataset) %>%
+  kbl() %>%
+  kable_material(c("striped", "hover"))
+
+```
+
+### additional_variables
+
+First look at the dataset.
+
+There are many null values but in general the data looks fine apart of the date values.
+
+This is the head
+```{r echo = FALSE, results = 'asis'}
+head(additional_variables) %>%
+  kbl() %>%
+  kable_material(c("striped", "hover"))
+
+```
+  
+This is the tail
+```{r echo = FALSE, results = 'asis'}
+  tail(additional_variables) %>%
+  kbl() %>%
+  kable_material(c("striped", "hover"))
+
+```
+
+### station_info
+
+First look at the dataset and below the map with the location of the data.
+
+The data looks fine.
+
+This is the head
+```{r echo = FALSE, results = 'asis'}
+head(station_info) %>%
+  kbl() %>%
+  kable_material(c("striped", "hover"))
+
+```
+  
+This is the tail
+```{r echo = FALSE, results = 'asis'}
+  tail(station_info) %>%
+  kbl() %>%
+  kable_material(c("striped", "hover"))
+
+```
+
+#### Oklahoma solar station location
+
+```{r echo = TRUE, results = 'asis'}
+leaflet(station_info) %>%
+  addTiles() %>%
+  addMarkers(lng= ~elon, lat= ~nlat, popup= ~stid)
+```
+
+## Feature transformation {.tabset .tabset-pills .tabset-fade}
+
+In conclusion, there are many null values in 'solar_dataset' and in 'additional_variables'.
+
+See how many null values I need to work with.
+
+### solar_dataset
+
+This dataset includes many nulls in addition there is a PCA which do not include null values.
+
+```{r echo = FALSE, results = 'asis'}
+sapply(solar_dataset, function(x) sum(is.na(x)))
+
+```
+
+### additional_variables
+
+This dataset includes many nulls.
+
+```{r echo = FALSE, results = 'asis'}
+sapply(additional_variables, function(x) sum(is.na(x)))
+
+```
+ 
+### station_info
+
+This dataset does not include nulls.
+
+```{r echo = FALSE, results = 'asis'}
+sapply(station_info, function(x) sum(is.na(x)))
+
+```
+
+
+##  Feature cleaning and visualization
+
+From here on, I will start digging only into the *solar_dataset*.
+
+Clearly the datasets 'solar_dataset' and 'additional_variables' have many null values. These will be dropped.
+
+In addition I want to see what is the featureclass for the 'Date' column.
+
+```{r echo = FALSE, results = 'asis'}
+solar_dataset <- drop_na(solar_dataset)
+
+class(solar_dataset$Date)
+```
+
+Since the Date featureis a character class, I need to transform this.
+
+```{r echo = FALSE, results = 'asis'}
+
+solar_dataset_new <- transform(solar_dataset, Date = as.Date(solar_dataset$Date, format =  "%Y%m%d"))
+solar_dataset_new['Quarter_year'] <- quarter(solar_dataset_new$Date, type = "year.quarter")
+solar_dataset_new['Quarter'] <- quarter(solar_dataset_new$Date, type = "quarter")
+solar_dataset_new <- solar_dataset_new %>%
+mutate(Season = case_when(Quarter == 1 ~ "Winter",
+                               Quarter == 2 ~ "Spring",
+                               Quarter == 3 ~ "Summer",
+                               Quarter == 4 ~ "Autumn"))
+
+class(solar_dataset_new$Date)
+class(solar_dataset_new$Quarter)
+class(solar_dataset_new$Quarter_year)
+class(solar_dataset_new$Season)
+```
+
+After inspecting 3 different features, it's evident that the data has strong outliers. This should be clipped to get more visibility on the data.
+
+It's also clear that based on the season, there is much more solar production. The end of the spring and the beginning of the sumer season seems particularly great for solar energy production. Which makes sense. A good idea would be to run mantainance during winter or autumn for high performance during peak seasons.
+
+In addition, it is clear that a boxplot will not give much information based on a single feature.
+
+Note: 
+
+- The colors used are not color blind friendly.
+- When seeing the data based on quarters, the data is siloed. This is the reason why the year is not investigated. Clearly, the linear dates give more information.
+
+```{r echo = FALSE, results = 'asis'}
+
+# Set colors for seasons
+seasons_colors <- c(
+              "Summer" = "#F8766D",
+              "Spring"="#39B600",
+              "Autumn"="#E08B00",
+              "Winter"="#00A5FF")
+
+# Exclude time features
+no_time_of_year = colnames(solar_dataset_new[ , -which(names(solar_dataset_new) %in% c("Season","Quarter","Date","Quarter_year"))])
+
+#ACME
+ggplot(solar_dataset_new, aes(x=Date, y=ACME, color=Season)) + geom_point() +ggtitle('Plot the feature ACME')+  scale_color_manual(values = seasons_colors) 
+
+ggplot(solar_dataset_new, aes(x=Quarter_year, y=ACME,group=1,color=Season), color="steelblue")+ geom_point()+  scale_color_manual(values = seasons_colors) 
+
+# BRIS
+ggplot(solar_dataset_new, aes(x=Date, y=BRIS, color=Season)) + geom_point() +ggtitle('Plot the feature BRIS')+  scale_color_manual(values = seasons_colors) 
+
+ggplot(solar_dataset_new, aes(x=Quarter_year, y=BRIS,group=1,color=Season), color="steelblue")+ geom_point()+  scale_color_manual(values = seasons_colors) 
+
+# CLAY
+ggplot(solar_dataset_new, aes(x=Date, y=CLAY, color=Season)) + geom_point() +ggtitle('Plot the feature CLAY')+  scale_color_manual(values = seasons_colors) 
+
+ggplot(solar_dataset_new, aes(x=Quarter_year, y=CLAY,group=1,color=Season), color="steelblue")+ geom_point()+  scale_color_manual(values = seasons_colors)
+```
+
+The boxplots do not give much information on the data. Clearly there is a strong skew when looking at all the data and there is no clear overview due to the amount of features.
+
+```{r echo = FALSE, results = 'asis'}
+boxplot(solar_dataset_new[no_time_of_year],main = 'Plot a boxplot for all features')
+boxplot(solar_dataset_new$BRIS,main = 'Plot a boxplot for BRIS',col='blue')
+boxplot(solar_dataset_new$ACME,main = 'Plot a boxplot for ACME',col='blue')
+boxplot(solar_dataset_new$CLAY,main = 'Plot a boxplot for CLAY',col='blue')
+```
+
+
+It is confirmed that the data is extremely skewed. With this data it will be difficult to plot any kind of graphs. It would be important to first exclude in a way most of the outliers.
+
+Note: For this data, outliers are of outmost importance as the stronger the solar energy registered is, the higher the energy production and also the higher the potential of warmer days. Which can potentially indicate forest fires if linked with other forest fire relevant data.
+
+### Remove outliers in every column
+
+To remove the outliers, I have decided to use the date.
+
+I have identified with the 'summary(solar_dataset_new)' function, that I can see the quartiles and will drop the rows based on this. Anything between the Q25 and Q75 will be kept.
+
+- Q25%: 1997-07-02
+- Q75%: 2004-07-01
+
+```{r echo = FALSE, results = 'asis'}
+which(solar_dataset_new == '1997-07-02', arr.ind=TRUE)
+
+which(solar_dataset_new == '2004-07-01', arr.ind=TRUE)
+
+identify_rows <- solar_dataset_new$Date >= '1997-07-02' & solar_dataset_new$Date <= '2004-07-01'
+solar_dataset_no_outliers <- solar_dataset_new[identify_rows,]
+
+```
+
+### Drop the PCA features and check the graph again and re-draw the boxplot for all the data
+
+In this step I separate the features of the PCA and the other non-PCA features.
+
+When drawing the PCA in a boxplot and while reducing the amount of features shown manually, you can identify that the best number of PCAs would be around 4 and 5 because these seem to include the highest variance / information.
+
+```{r echo = FALSE, results = 'asis'}
+solar_dataset_pca <- solar_dataset_no_outliers[colnames(solar_dataset_no_outliers[grep("PC", colnames(solar_dataset_no_outliers))])]
+
+solar_dataset_no_pca <- solar_dataset_no_outliers[colnames(solar_dataset_no_outliers[-grep("PC", colnames(solar_dataset_no_outliers))])]
+
+# Re-define the no_time_of_year features on the new dataframe
+no_time_of_year = colnames(solar_dataset_no_pca[ , -which(names(solar_dataset_no_pca) %in% c("Season","Quarter","Date","Quarter_year"))])
+
+# solar_dataset_no_outliers <- solar_dataset_no_outliers[, -grep("PC", colnames(solar_dataset_no_outliers))]
+
+boxplot(solar_dataset_pca)
+title("Comparing boxplot()s for all PCA")
+
+boxplot(solar_dataset_pca[,1:7])
+title("Comparing boxplot()s for all PCA with highest variance")
+
+boxplot(solar_dataset_no_pca[no_time_of_year])
+title("Comparing boxplot()s for all data without PCA")
+```
+
+Without PCA and outliers, there is more visibility on the data. It is somewhat equally distributed among the stations. Some seem to generate more energy than others.
+
+After removing the outliers and the PCA, I want to see the new shape of the features.
+
+```{r echo = FALSE, results = 'asis'}
+
+
+#ACME
+ggplot(solar_dataset_no_outliers, aes(x=Date, y=ACME, color=Season)) + geom_point() +ggtitle('Plot the feature ACME and no outliers and no PCA')+  scale_color_manual(values = seasons_colors) 
+
+ggplot(solar_dataset_no_outliers, aes(x=Quarter_year, y=ACME,group=1,color=Season), color="steelblue")+ geom_point()+  scale_color_manual(values = seasons_colors) 
+
+# BRIS
+ggplot(solar_dataset_no_outliers, aes(x=Date, y=BRIS, color=Season)) + geom_point() +ggtitle('Plot the feature BRIS and no outliers and no PCA')+  scale_color_manual(values = seasons_colors) 
+
+ggplot(solar_dataset_no_outliers, aes(x=Quarter_year, y=BRIS,group=1,color=Season), color="steelblue")+ geom_point()+  scale_color_manual(values = seasons_colors) 
+
+# CLAY
+ggplot(solar_dataset_no_outliers, aes(x=Date, y=CLAY, color=Season)) + geom_point() +ggtitle('Plot the feature CLAY and no outliers and no PCA')+  scale_color_manual(values = seasons_colors) 
+
+ggplot(solar_dataset_no_outliers, aes(x=Quarter_year, y=CLAY,group=1,color=Season), color="steelblue")+ geom_point()+  scale_color_manual(values = seasons_colors)
+
+boxplot(solar_dataset_no_outliers[no_time_of_year],main = 'Plot a boxplot for all features')
+
+boxplot(solar_dataset_no_outliers$BRIS,main = 'Plot a boxplot for BRIS and no outliers and no PCA',col='blue')
+boxplot(solar_dataset_no_outliers$ACME,main = 'Plot a boxplot for ACME and no outliers and no PCA',col='blue')
+boxplot(solar_dataset_no_outliers$CLAY,main = 'Plot a boxplot for CLAY and no outliers and no PCA',col='blue')
+```
+
+Dropping the outliers did not help much, I still see a strong skew in the data.
+
+This indicated that the variance is high and using PCA or any other dimensionality reduction model would be a great way to move forward when running a ML model.
+
+Compared to the earlier plots, there seems that the energy production slightly decreased after the year 2004.
+
+### See correlation
+
+All features are highly correlated.
+
+An assumption would be, that due to the different locations of the station the solar data is collected at a similar temperature / level while the earth moves around the sun. Some have a negative correlation, probably due to the opposite location or because this could be placed in an area where more clouds cover the sky.
+
+Note: Correlation is not causation, therefore these are only assumptions.
+
+```{r echo = FALSE, results = 'asis'}
+solar_dataset_no_outliers_subset <- cor(subset(solar_dataset_new[10:20]))
+corrplot(solar_dataset_no_outliers_subset, method="color")
+
+```
+
+### See the distribution of the new data without outliers
+
+The normal dsitribution confirms again the assumption that the data is not normally distributed and strongly skewed. Maybe to predict the next solar data, a model like ARIMA would be used. In case this data would be used to predict the next solar energy level.
+
+Even after I dropped the outliers. For the data to predict accurately and for a model to generalize properly, I will need to select a model that can work well with high variance. I could also try to add bias to the model to reduce the variance or collect more data / artificially create more data. However, by doing so, the assumption would only be that the strong variation in the curves would flatten it and not yielding much more insights.
+
+```{r echo = FALSE, results = 'asis'}
+library(rcompanion)
+
+ACME <- solar_dataset_no_outliers$ACME
+
+ plotNormalHistogram( ACME, prob = FALSE,
+                      main = "Normal distribution overlay on Histogram for the ACME Station",
+                      length = 1000 )
+
+BRIS <- solar_dataset_no_outliers$BRIS
+
+ plotNormalHistogram( BRIS, prob = FALSE,
+                      main = "Normal distribution overlay on Histogram for the BRIS Station",
+                      length = 1000 )
+                      
+ CLAY <- solar_dataset_no_outliers$CLAY
+
+ plotNormalHistogram( CLAY, prob = FALSE,
+                      main = "Normal distribution overlay on Histogram for the CLAY Station",
+                      length = 1000 )                     
+                      
+```
+
+## Conclusion
+
+In conclusion, I have confirmed that the data is normal for the season with strong outliers. Due to the high variance, a model that can handle the variance or using dimensionality reduction, will help to predict better. This has been shown based on the distribution per day over the years and the correlation between the stations.
+
+As mentioned, probably a good way to predict the next generation of solar energy a model like ARIMA could be used, as this can handle well simple forecasting for data that is strongly skewed. Apart of any other machine learning model that could be also applied.
+
+
+
+
